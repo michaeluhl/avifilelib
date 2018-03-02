@@ -153,7 +153,7 @@ class AVIFile(object):
         rem_size = strf_chunk.getsize() - strf_chunk.tell()
         if clr_ct > 0 and rem_size >= clr_size:
             colors = unpack('<{}B'.format(4*clr_ct), strf_chunk.read(clr_size))
-            colors = [list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)]
+            colors = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)], dtype='B')
             return colors
         return []
 
