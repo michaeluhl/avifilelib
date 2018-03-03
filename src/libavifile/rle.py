@@ -23,10 +23,16 @@ class RLEDecoder(object):
     def colors(self):
         return self.__colors
 
-    def decode_frame(self, rle_file, size):
-        data = np.fromfile(rle_file, dtype='<B', count=size)
+    @property
+    def image(self):
+        return np.flip(self.__image, axis=0)
+
+    def decode_frame(self, rle_file, size, keyframe=True):
         row, col = 0, 0
         mode = 0
+        if keyframe:
+            self.__image[:,:,:] = 0
+        data = np.fromfile(rle_file, dtype='<B', count=size)
         for i in range(0, size, 2):
             count, color_idx = data[i:i+2]
             if mode == 'delta':
@@ -54,5 +60,4 @@ class RLEDecoder(object):
             else:
                 self.__image[row, col:col+count, :] = self.__colors[color_idx, :]
                 col += count
-        self.__image = np.flip(self.__image, axis=0)
-        return
+        return np.flip(self.__image, axis=0)
