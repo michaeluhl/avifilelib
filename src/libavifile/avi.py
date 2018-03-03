@@ -3,7 +3,6 @@ from contextlib import closing, contextmanager
 from enum import Enum
 import numpy as np
 from struct import unpack
-import os
 
 
 try:
@@ -24,6 +23,14 @@ class BI_COMPRESSION(IntFlag):
     BI_CMYKREL4 = 0x000D
 
 
+class AVIF(IntFlag):
+    HASINDEX = 0x00000010
+    MUSTUSEINDEX = 0x00000020
+    ISINTERLEAVED = 0x00000100
+    WASCAPTUREFILE = 0x00010000
+    COPYRIGHTED = 0x00020000
+
+
 class AVIIF(IntFlag):
     LIST = 0x00000001
     KEYFRAME = 0x00000010
@@ -41,13 +48,19 @@ class ChunkTypeException(Exception):
     pass
 
 
+class ChunkFormatException(Exception):
+    pass
+
+
 @contextmanager
-def rollback(chunk):
-    posn = chunk.tell()
+def rollback(file_like, reraise=False):
+    posn = file_like.tell()
     try:
-        yield chunk
+        yield file_like
     except ChunkTypeException:
-        chunk.seek(posn)
+        file_like.seek(posn)
+        if reraise:
+            raise
 
 
 class AviFileHeader(object):
@@ -59,7 +72,7 @@ class AviFileHeader(object):
         self.micro_sec_per_frame = micro_sec_per_frame
         self.max_bytes_per_sec = max_bytes_per_sec
         self.padding_granularity = padding_granularity
-        self.flags = flags
+        self.flags = AVIF(flags)
         self.total_frames = total_frames
         self.initial_frames = initial_frames
         self.streams = streams
@@ -229,11 +242,175 @@ class AviStreamName(object):
     @classmethod
     def from_chunk(cls, parent_chunk):
         with closing(RIFFChunk(parent_chunk)) as strn_chunk:
-            if strn_chunk.getname() == 'strn':
+            if strn_chunk.getname() == b'strn':
                 raw_bytes = strn_chunk.read()
                 name = raw_bytes[:raw_bytes.index(b'\0')].decode('ASCII')
                 return cls(name=name)
             raise ChunkTypeException()
+
+
+class AviStreamChunk(object):
+
+    DATA_TYPES = ('db', 'dc', 'pc', 'wb')
+
+    def __init__(self, stream_id, data_type, base_file, absolute_offset, size, flags=0):
+        self.stream_id = stream_id
+        self.data_type = data_type
+        self.base_file = base_file
+        self.absolute_offset = absolute_offset
+        self.size = size
+        self.size_read = 0
+        self.__flags = AVIIF(flags)
+
+    @property
+    def flags(self):
+        return self.__flags
+
+    @flags.setter
+    def flags(self, flags):
+        self.__flags = AVIIF(flags)
+
+    def read(self, size=-1):
+        if self.base_file.closed:
+            raise ValueError("I/O operation on closed file")
+        if self.size_read >= self.size:
+            return b''
+        if size < 0:
+            size = self.size - self.size_read
+        if size > self.size - self.size_read:
+            size = self.size - self.size_read
+        data = self.base_file.read(size)
+        self.size_read = self.size_read + len(data)
+        return data
+
+    def seek(self, pos, whence=0):
+        if self.base_file.closed:
+            raise ValueError("I/O operation on closed file")
+        if whence == 1:
+            pos = pos + self.size_read
+        elif whence == 2:
+            pos = pos + self.size
+        if pos < 0 or pos > self.size:
+            raise RuntimeError
+        self.base_file.seek(self.absolute_offset + pos, 0)
+        self.size_read = pos
+
+    def tell(self):
+        if self.base_file.closed:
+            raise ValueError("I/O operation on closed file")
+        return self.size_read
+
+    @classmethod
+    def from_chunk(cls, parent_chunk):
+        with closing(RIFFChunk(parent_chunk)) as strm_chunk:
+            chunk_id = strm_chunk.getname().decode('ASCII')
+            try:
+                stream_id = int(chunk_id[:2])
+                data_type = chunk_id[2:]
+                if data_type not in cls.DATA_TYPES:
+                    raise KeyError()
+            except ValueError:
+                raise ChunkFormatException('Could not decode stream index: {}'.format(chunk_id[:2]))
+            except KeyError:
+                raise ChunkFormatException('Could not determine stream data type: {}'.format(chunk_id[2:]))
+            base_file = parent_chunk
+            while isinstance(base_file, RIFFChunk):
+                base_file = base_file.file
+            absolute_offset = base_file.tell()
+            size = strm_chunk.getsize()
+            return cls(stream_id=stream_id,
+                       data_type=data_type,
+                       base_file=base_file,
+                       absolute_offset=absolute_offset,
+                       size=size)
+
+
+class AviRecList(object):
+
+    def __init__(self, data_chunks=None):
+        self.data_chunks = data_chunks if data_chunks else []
+
+    @classmethod
+    def from_chunk(cls, parent_chunk):
+        with closing(RIFFChunk(parent_chunk)) as rec_list:
+            if not rec_list.islist() or rec_list.getname() != b'rec ':
+                raise ChunkTypeException()
+            data_chunks = []
+            while rec_list.tell() < rec_list.getsize() - 1:
+                data_chunks.append(AviStreamChunk.from_chunk(rec_list))
+            return cls(data_chunks=data_chunks)
+
+
+class AviMoviList(object):
+
+    def __init__(self, data_chunks=None):
+        self.data_chunks = data_chunks if data_chunks else []
+        self.streams = {}
+        for chunk in self.data_chunks:
+            self.streams.setdefault(chunk.stream_id, []).append(chunk)
+
+    @classmethod
+    def from_file(cls, file):
+        with closing(RIFFChunk(file=file)) as movi_list:
+            if not movi_list.islist() or movi_list.getlisttype() != 'movi':
+                raise ChunkTypeException('Chunk: {}, {}'.format(movi_list.getname().decode('ASCII'), movi_list.getsize()))
+            data_chunks = []
+            while movi_list.tell() < movi_list.getsize() - 1:
+                try:
+                    with rollback(movi_list, reraise=True):
+                        rec_list = AviRecList.from_chunk(parent_chunk=movi_list)
+                        data_chunks.extend(rec_list.data_chunks)
+                except ChunkTypeException:
+                    data_chunks.append(AviStreamChunk.from_chunk(movi_list))
+            return cls(data_chunks=data_chunks)
+
+
+class AviJunkChunk(object):
+
+    @classmethod
+    def from_file(cls, file):
+        with closing(RIFFChunk(file)) as junk_chunk:
+            if junk_chunk.getname() != b'JUNK':
+                raise ChunkTypeException()
+
+
+class AviOldIndexEntry(object):
+
+    def __init__(self, chunk_id, flags, offset, size):
+        self.chunk_id = chunk_id
+        self.flags = AVIIF(flags)
+        self.offset = offset
+        self.size = size
+
+    def __str__(self):
+        return "<i={}, f={}, o={}, s={}>".format(self.chunk_id,
+                                                 repr(self.flags),
+                                                 self.offset,
+                                                 self.size)
+
+    @classmethod
+    def from_chunk(cls, parent_chunk):
+        entry_data = unpack('4s3I', parent_chunk.read(16))
+        return cls(entry_data[0].decode('ASCII'), *entry_data[1:])
+
+
+class AviOldIndex(object):
+
+    def __init__(self, index=None):
+        self.index = index if index else None
+
+    def __str__(self):
+        return "AviOldIndex:\n" + "\n".join(["  " + str(e) for e in self.index])
+
+    @classmethod
+    def from_file(cls, file):
+        with closing(RIFFChunk(file)) as idx1_chunk:
+            if idx1_chunk.getname() != b'idx1':
+                raise ChunkTypeException()
+            index = []
+            while idx1_chunk.tell() < idx1_chunk.getsize():
+                index.append(AviOldIndexEntry.from_chunk(idx1_chunk))
+            return cls(index=index)
 
 
 class RIFFChunk(Chunk):
@@ -254,7 +431,7 @@ class RIFFChunk(Chunk):
         return self.__list_type
 
 
-class AVIFile(object):
+class AviFile(object):
 
     def __init__(self, file_or_filename):
         self.__file = file_or_filename
@@ -268,9 +445,20 @@ class AVIFile(object):
         if self.__file.read(4).decode('ASCII') != 'AVI ':
             raise ValueError('Non-AVI file detected.')
 
-        hdrl_chunk = RIFFChunk(self.__file)
-        self.avih = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
-        self.strl = []
-        while hdrl_chunk.tell() < hdrl_chunk.getsize():
-            self.strl.append(AviStreamDefinition.from_chunk(stream_id=len(self.strl), parent_chunk=hdrl_chunk))
+        with closing(RIFFChunk(self.__file)) as hdrl_chunk:
+            self.avih = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
+            self.strl = []
+            while hdrl_chunk.tell() < hdrl_chunk.getsize():
+                self.strl.append(AviStreamDefinition.from_chunk(stream_id=len(self.strl), parent_chunk=hdrl_chunk))
+
+        with rollback(self.__file):
+            AviJunkChunk.from_file(self.__file)
+        self.movi = AviMoviList.from_file(self.__file)
+
+        self.idx1 = None
+        try:
+            self.idx1 = AviOldIndex.from_file(self.__file)
+        except ChunkTypeException:
+            pass
+
         self.__file.close()
