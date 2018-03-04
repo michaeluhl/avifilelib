@@ -216,9 +216,9 @@ class BitmapInfoHeaders(AviStreamFormat):
         if self.clr_used > 0 and rem_size >= clr_size:
             colors = unpack('<{}B'.format(clr_size),
                             chunk.read(clr_size))
-            colors = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)], dtype='B')
-            return colors
-        return []
+            self.color_table = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)], dtype='B')
+        else:
+            self.color_table = []
 
 
 class AviStreamData(object):
@@ -343,17 +343,48 @@ class AviRecList(object):
 
 class AviMoviList(object):
 
-    def __init__(self, data_chunks=None):
+    def __init__(self, absolute_offset=0, data_chunks=None):
+        self.absolute_offset = absolute_offset
         self.data_chunks = data_chunks if data_chunks else []
         self.streams = {}
+        self.by_offset = {}
         for chunk in self.data_chunks:
             self.streams.setdefault(chunk.stream_id, []).append(chunk)
+            self.by_offset[chunk.absolute_offset - self.absolute_offset -4] = chunk
+
+    def get_by_index_entry(self, entry):
+        chunk = self.get_by_movi_offset(entry.offset)
+        chunk.flags = entry.flags
+        return chunk
+
+    def get_by_movi_offset(self, movi_offset):
+        return self.by_offset[movi_offset]
+
+    def iter_chunks_by_index(self, index, stream=None):
+        if stream and stream not in self.streams:
+            raise RuntimeError('Invalid stream id: {}'.format(stream))
+        for entry in index.index:
+            chunk = self.get_by_index_entry(entry=entry)
+            if not stream or chunk.stream_id == stream:
+                yield chunk
+            else:
+                continue
+
+    def iter_chunks(self, stream=None):
+        if stream and stream not in self.streams:
+            raise RuntimeError('Invalid stream id: {}'.format(stream))
+        for chunk in self.data_chunks:
+            if not stream or chunk.stream_id == stream:
+                yield chunk
+            else:
+                continue
 
     @classmethod
     def from_file(cls, file):
         with closing(RIFFChunk(file=file)) as movi_list:
             if not movi_list.islist() or movi_list.getlisttype() != 'movi':
                 raise ChunkTypeException('Chunk: {}, {}'.format(movi_list.getname().decode('ASCII'), movi_list.getsize()))
+            absolute_offset = file.tell()
             data_chunks = []
             while movi_list.tell() < movi_list.getsize() - 1:
                 try:
@@ -362,7 +393,7 @@ class AviMoviList(object):
                         data_chunks.extend(rec_list.data_chunks)
                 except ChunkTypeException:
                     data_chunks.append(AviStreamChunk.from_chunk(movi_list))
-            return cls(data_chunks=data_chunks)
+            return cls(absolute_offset=absolute_offset, data_chunks=data_chunks)
 
 
 class AviJunkChunk(object):
@@ -446,19 +477,39 @@ class AviFile(object):
             raise ValueError('Non-AVI file detected.')
 
         with closing(RIFFChunk(self.__file)) as hdrl_chunk:
-            self.avih = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
-            self.strl = []
+            self.avi_header = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
+            self.stream_definitions = []
             while hdrl_chunk.tell() < hdrl_chunk.getsize():
-                self.strl.append(AviStreamDefinition.from_chunk(stream_id=len(self.strl), parent_chunk=hdrl_chunk))
+                self.stream_definitions.append(AviStreamDefinition.from_chunk(stream_id=len(self.stream_definitions),
+                                                                              parent_chunk=hdrl_chunk))
 
         with rollback(self.__file):
             AviJunkChunk.from_file(self.__file)
-        self.movi = AviMoviList.from_file(self.__file)
+        self.stream_content = AviMoviList.from_file(self.__file)
 
-        self.idx1 = None
+        self.old_index = None
         try:
-            self.idx1 = AviOldIndex.from_file(self.__file)
+            self.old_index = AviOldIndex.from_file(self.__file)
         except ChunkTypeException:
-            pass
+            if AVIF.MUSTUSEINDEX in self.avi_header.flags:
+                raise ValueError('AVI header requires use of index and index is missing.')
 
-        self.__file.close()
+    @property
+    def avih(self):
+        return self.avi_header
+
+    @property
+    def strl(self):
+        return self.stream_definitions
+
+    @property
+    def movi(self):
+        return self.stream_content
+
+    @property
+    def idx1(self):
+        return self.old_index
+
+    def close(self):
+        if not self.__file.closed:
+            self.__file.close()
