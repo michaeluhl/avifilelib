@@ -44,6 +44,12 @@ class FCC_TYPE(Enum):
     VIDEO = 'vids'
 
 
+class STREAM_DATA_TYPES(Enum):
+    UNCOMPRESSED_VIDEO = 'db'
+    COMPRESSED_VIDEO = 'dc'
+    PALETTE_CHANGE = 'pc'
+    AUDIO_DATA = 'wb'
+
 class ChunkTypeException(Exception):
     pass
 
@@ -251,11 +257,9 @@ class AviStreamName(object):
 
 class AviStreamChunk(object):
 
-    DATA_TYPES = ('db', 'dc', 'pc', 'wb')
-
     def __init__(self, stream_id, data_type, base_file, absolute_offset, size, flags=0):
         self.stream_id = stream_id
-        self.data_type = data_type
+        self.data_type = STREAM_DATA_TYPES(data_type)
         self.base_file = base_file
         self.absolute_offset = absolute_offset
         self.size = size
@@ -302,17 +306,22 @@ class AviStreamChunk(object):
 
     @classmethod
     def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strm_chunk:
+        with closing(RIFFChunk(parent_chunk, align=True)) as strm_chunk:
             chunk_id = strm_chunk.getname().decode('ASCII')
             try:
                 stream_id = int(chunk_id[:2])
-                data_type = chunk_id[2:]
-                if data_type not in cls.DATA_TYPES:
-                    raise KeyError()
             except ValueError:
-                raise ChunkFormatException('Could not decode stream index: {}'.format(chunk_id[:2]))
-            except KeyError:
-                raise ChunkFormatException('Could not determine stream data type: {}'.format(chunk_id[2:]))
+                strm_chunk.seek(0)
+                raise ChunkFormatException('Could not decode stream index: '
+                                           '{} @ offset 0x{:08x}'.format(chunk_id[:2],
+                                                                         parent_chunk.tell()))
+            try:
+                data_type = STREAM_DATA_TYPES(chunk_id[2:])
+            except ValueError:
+                strm_chunk.seek(0)
+                raise ChunkFormatException('Could not determine stream data type: '
+                                           '{} @ offset 0x{:08x}'.format(chunk_id[2:],
+                                                                         parent_chunk.tell()))
             base_file = parent_chunk
             while isinstance(base_file, RIFFChunk):
                 base_file = base_file.file
@@ -412,6 +421,8 @@ class AviOldIndexEntry(object):
         self.flags = AVIIF(flags)
         self.offset = offset
         self.size = size
+        self.stream_id = int(self.chunk_id[:2])
+        self.data_type = STREAM_DATA_TYPES(self.chunk_id[2:])
 
     def __str__(self):
         return "<i={}, f={}, o={}, s={}>".format(self.chunk_id,
@@ -432,6 +443,12 @@ class AviOldIndex(object):
 
     def __str__(self):
         return "AviOldIndex:\n" + "\n".join(["  " + str(e) for e in self.index])
+
+    def by_stream(self, stream_id):
+        return AviOldIndex(index=[e for e in self.index if e.stream_id == stream_id])
+
+    def by_data_type(self, data_type):
+        return AviOldIndex(index=[e for e in self.index if e.data_type == data_type])
 
     @classmethod
     def from_file(cls, file):
