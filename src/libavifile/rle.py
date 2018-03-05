@@ -1,8 +1,7 @@
 from itertools import zip_longest
-from struct import unpack
-import numpy as np
 
-import libavifile.avi as avi
+from libavifile.enums import BI_COMPRESSION, FCC_TYPE
+import numpy as np
 
 
 def chunkwise(iterable, count=2, fill_value=None):
@@ -39,7 +38,7 @@ class DecoderBase(object):
     def for_avi_stream(cls, avifile, stream):
         stream_def = avifile.stream_definitions[stream]
         fcc_type = stream_def.strh.fcc_type
-        if fcc_type != avi.FCC_TYPE.VIDEO:
+        if fcc_type != FCC_TYPE.VIDEO:
             raise RuntimeError('Stream {} is not a video stream.')
 
         compression = stream_def.strf.compression
@@ -53,7 +52,7 @@ class DecoderBase(object):
 
 class RLE4Decoder(DecoderBase):
 
-    COMPRESSION = avi.BI_COMPRESSION.BI_RLE4
+    COMPRESSION = BI_COMPRESSION.BI_RLE4
 
     def __init__(self, width, height, colors):
         super(RLE4Decoder, self).__init__(width=width, height=height, colors=colors)
@@ -97,7 +96,7 @@ class RLE4Decoder(DecoderBase):
 
 class RLE8Decoder(DecoderBase):
 
-    COMPRESSION = avi.BI_COMPRESSION.BI_RLE8
+    COMPRESSION = BI_COMPRESSION.BI_RLE8
 
     def __init__(self, width, height, colors):
         super(RLE8Decoder, self).__init__(width=width, height=height, colors=colors)

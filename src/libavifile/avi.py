@@ -1,54 +1,10 @@
 from chunk import Chunk
 from contextlib import closing, contextmanager
-from enum import Enum
-import numpy as np
 from struct import unpack
 
+import numpy as np
+from libavifile.enums import BI_COMPRESSION, AVIF, AVIIF, FCC_TYPE, STREAM_DATA_TYPES
 
-try:
-    from enum import IntFlag
-except ImportError:
-    from aenum import IntFlag
-
-
-class BI_COMPRESSION(IntFlag):
-    BI_RGB = 0x0000
-    BI_RLE8 = 0x0001
-    BI_RLE4 = 0x0002
-    BI_BITFIELDS = 0x0003
-    BI_JPEG = 0x0004
-    BI_PNG = 0x0005
-    BI_CMYK = 0x000B
-    BI_CMYKRLE8 = 0x000C
-    BI_CMYKREL4 = 0x000D
-
-
-class AVIF(IntFlag):
-    HASINDEX = 0x00000010
-    MUSTUSEINDEX = 0x00000020
-    ISINTERLEAVED = 0x00000100
-    WASCAPTUREFILE = 0x00010000
-    COPYRIGHTED = 0x00020000
-
-
-class AVIIF(IntFlag):
-    LIST = 0x00000001
-    KEYFRAME = 0x00000010
-    NO_TIME = 0x00000100
-
-
-class FCC_TYPE(Enum):
-    AUDIO = 'auds'
-    MIDI = 'mids'
-    TEXT = 'txts'
-    VIDEO = 'vids'
-
-
-class STREAM_DATA_TYPES(Enum):
-    UNCOMPRESSED_VIDEO = 'db'
-    COMPRESSED_VIDEO = 'dc'
-    PALETTE_CHANGE = 'pc'
-    AUDIO_DATA = 'wb'
 
 class ChunkTypeException(Exception):
     pass
