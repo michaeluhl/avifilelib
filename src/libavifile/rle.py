@@ -1,56 +1,37 @@
-from itertools import zip_longest
-
-from libavifile.enums import BI_COMPRESSION, FCC_TYPE
 import numpy as np
+from libavifile.decoder import chunkwise, DecoderBase
+from libavifile.enums import BI_COMPRESSION, FCC_TYPE
 
 
-def chunkwise(iterable, count=2, fill_value=None):
-    it = iter(iterable)
-    return zip_longest(*[it]*count, fillvalue=fill_value)
+class RLEDecoderBase(DecoderBase):
 
-
-class DecoderBase(object):
+    COMPRESSION = (BI_COMPRESSION.BI_RLE4, BI_COMPRESSION.BI_RLE8)
 
     def __init__(self, width, height, colors):
-        self._width = width
-        self._height = height
+        super(RLEDecoderBase, self).__init__(width=width, height=height)
         self._colors = colors
-        self._image = np.zeros((height, width, 3), dtype='B')
         self._image[:, :, :] = self._colors[0, :]
-
-    @property
-    def width(self):
-        return self._width
-
-    @property
-    def height(self):
-        return self._height
 
     @property
     def colors(self):
         return self._colors
 
-    @property
-    def image(self):
-        return np.flip(self._image, axis=0)
-
     @classmethod
-    def for_avi_stream(cls, avifile, stream):
-        stream_def = avifile.stream_definitions[stream]
-        fcc_type = stream_def.strh.fcc_type
+    def for_avi_stream(cls, stream_definition):
+        fcc_type = stream_definition.strh.fcc_type
         if fcc_type != FCC_TYPE.VIDEO:
             raise RuntimeError('Stream {} is not a video stream.')
 
-        compression = stream_def.strf.compression
+        compression = stream_definition.strf.compression
         for scls in cls.__subclasses__():
             if scls.COMPRESSION == compression:
-                return scls(width=stream_def.strf.width,
-                            height=stream_def.strf.height,
-                            colors=stream_def.strf.color_table)
+                return scls(width=stream_definition.strf.width,
+                            height=stream_definition.strf.height,
+                            colors=stream_definition.strf.color_table)
         raise RuntimeError('No decoder for compression type: {}'.format(repr(compression)))
 
 
-class RLE4Decoder(DecoderBase):
+class RLE4Decoder(RLEDecoderBase):
 
     COMPRESSION = BI_COMPRESSION.BI_RLE4
 
@@ -94,7 +75,7 @@ class RLE4Decoder(DecoderBase):
         return np.flip(self._image, axis=0)
 
 
-class RLE8Decoder(DecoderBase):
+class RLE8Decoder(RLEDecoderBase):
 
     COMPRESSION = BI_COMPRESSION.BI_RLE8
 
