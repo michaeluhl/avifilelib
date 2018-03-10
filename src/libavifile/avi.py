@@ -3,7 +3,7 @@ from contextlib import closing, contextmanager
 from struct import unpack
 
 import numpy as np
-from libavifile.enums import BI_COMPRESSION, AVIF, AVIIF, FCC_TYPE, STREAM_DATA_TYPES
+from libavifile.enums import BI_COMPRESSION, AVIF, AVIIF, AVISF, FCC_TYPE, STREAM_DATA_TYPES
 
 
 class ChunkTypeException(Exception):
@@ -79,6 +79,12 @@ class AviStreamDefinition(object):
     @classmethod
     def from_chunk(cls, stream_id, parent_chunk):
         with closing(RIFFChunk(parent_chunk)) as strl_chunk:
+            if not strl_chunk.islist() or strl_chunk.getlisttype() != 'strl':
+                raise ChunkTypeException('Non-"strl" Chunk: {}, {}, {}'.format(
+                    strl_chunk.getname().decode('ASCII'),
+                    strl_chunk.getsize(),
+                    strl_chunk.getlisttype()
+                ))
             strh = AviStreamHeader.from_chunk(strl_chunk)
             strf = AviStreamFormat.from_chunk(stream_header=strh,
                                               parent_chunk=strl_chunk)
@@ -89,6 +95,8 @@ class AviStreamDefinition(object):
                     strd = AviStreamData.from_chunk(parent_chunk=strl_chunk)
                 with rollback(strl_chunk):
                     strn = AviStreamName.from_chunk(parent_chunk=strl_chunk)
+                with rollback(strl_chunk):
+                    _ = AviJunkChunk.from_file(strl_chunk)
             except EOFError:
                 pass
             return cls(stream_id=stream_id, stream_header=strh, stream_format=strf, stream_data=strd, stream_name=strn)
@@ -103,7 +111,7 @@ class AviStreamHeader(object):
                  sample_size, frame):
         self.fcc_type = FCC_TYPE(fcc_type.decode('ASCII'))
         self.fcc_handler = fcc_handler
-        self.flags = flags
+        self.flags = AVISF(flags)
         self.priority = priority
         self.language = language
         self.initial_frames  = initial_frames 
@@ -348,7 +356,9 @@ class AviMoviList(object):
     def from_file(cls, file):
         with closing(RIFFChunk(file=file)) as movi_list:
             if not movi_list.islist() or movi_list.getlisttype() != 'movi':
-                raise ChunkTypeException('Chunk: {}, {}'.format(movi_list.getname().decode('ASCII'), movi_list.getsize()))
+                raise ChunkTypeException('Chunk: {}, {}, {}'.format(movi_list.getname().decode('ASCII'),
+                                                                    movi_list.getsize(),
+                                                                    movi_list.getlisttype()))
             absolute_offset = file.tell()
             data_chunks = []
             while movi_list.tell() < movi_list.getsize() - 1:
@@ -452,13 +462,16 @@ class AviFile(object):
         with closing(RIFFChunk(self.__file)) as hdrl_chunk:
             self.avi_header = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
             self.stream_definitions = []
-            while hdrl_chunk.tell() < hdrl_chunk.getsize():
-                self.stream_definitions.append(AviStreamDefinition.from_chunk(stream_id=len(self.stream_definitions),
-                                                                              parent_chunk=hdrl_chunk))
-
-        with rollback(self.__file):
-            AviJunkChunk.from_file(self.__file)
-        self.stream_content = AviMoviList.from_file(self.__file)
+            for i in range(self.avi_header.streams):
+                self.stream_definitions.append(
+                    AviStreamDefinition.from_chunk(stream_id=len(self.stream_definitions),
+                                                   parent_chunk=hdrl_chunk))
+        self.stream_content = None
+        while not self.stream_content:
+            try:
+                self.stream_content = AviMoviList.from_file(self.__file)
+            except ChunkTypeException:
+                pass
 
         self.old_index = None
         try:
