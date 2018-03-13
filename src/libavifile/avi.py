@@ -155,6 +155,8 @@ class UnparsedStreamFormat(AviStreamFormat):
 class BitmapInfoHeaders(AviStreamFormat):
     
     FCC_TYPE = FCC_TYPE.VIDEO
+
+    UNPACK_FORMAT = '<I2i2H2I2i2I'
     
     def __init__(self, size, width, height, planes, 
                  bit_count, compression, size_image, 
@@ -174,21 +176,31 @@ class BitmapInfoHeaders(AviStreamFormat):
         self.color_table = None
 
     @classmethod
-    def from_chunk(cls, stream_header, parent_chunk):
+    def from_chunk(cls, stream_header, parent_chunk, force_color_table=False):
         with closing(RIFFChunk(parent_chunk)) as strf_chunk:
-            strf = cls(*unpack('<I2i2H2I2i2I', strf_chunk.read(40)))
-            strf.read_colortable(strf_chunk)
-            return strf
+            return cls.from_file(strf_chunk, force_color_table=force_color_table)
 
-    def read_colortable(self, chunk):
+    @classmethod
+    def from_file(cls, file, force_color_table=False):
+        strf = cls(*unpack(cls.UNPACK_FORMAT, file.read(40)))
+        strf.read_colortable(file, force=force_color_table)
+        return strf
+
+    def read_colortable(self, chunk, force=False):
         clr_size = 4*self.clr_used
-        rem_size = chunk.getsize() - chunk.tell()
-        if self.clr_used > 0 and rem_size >= clr_size:
+        self.color_table = []
+        if self.clr_used <= 0 and not force:
+            return
+        elif self.clr_used <= 0:
+            clr_size = (2**self.bit_count) * 4
+        try:
             colors = unpack('<{}B'.format(clr_size),
                             chunk.read(clr_size))
-            self.color_table = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)], dtype='B')
-        else:
-            self.color_table = []
+            self.color_table = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)],
+                                        dtype='B')
+            return
+        except EOFError:
+            pass
 
 
 class AviStreamData(object):
