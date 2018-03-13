@@ -28,6 +28,13 @@ class DecoderBase(object):
     def image(self):
         return np.flip(self._image, axis=0)
 
+    def decode_frame_chunk(self, chunk, keyframe=True):
+        chunk.seek(0)
+        buffer = chunk.read()
+        return self.decode_frame_buffer(buffer=buffer,
+                                        size=len(buffer),
+                                        keyframe=keyframe)
+
     def decode_frame_buffer(self, buffer, size, keyframe=True):
         raise NotImplementedError()
 
