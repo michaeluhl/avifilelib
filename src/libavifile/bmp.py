@@ -69,7 +69,7 @@ class BMP8Decoder(BMPDecoderBase):
     BIT_COUNT = 8
     COMPRESSION = BI_COMPRESSION.BI_RGB
 
-    def decode_frame(self, buffer, size, keyframe=True):
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
         row, col = 0, 0
         mode = 0
         if keyframe:

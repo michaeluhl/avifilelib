@@ -38,12 +38,12 @@ class RLE4Decoder(RLEDecoderBase):
     def __init__(self, width, height, colors):
         super(RLE4Decoder, self).__init__(width=width, height=height, colors=colors)
 
-    def decode_frame(self, bytes, size, keyframe=True):
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
         row, col = 0, 0
         mode = 0
         if keyframe:
             self._image[:, :, :] = 0
-        data = np.frombuffer(bytes, dtype='<B', count=size)
+        data = np.frombuffer(buffer, dtype='<B', count=size)
         for count, color_idx in chunkwise(data, count=2, fill_value=0x0):
             if mode == 'delta':
                 col += count
@@ -82,12 +82,12 @@ class RLE8Decoder(RLEDecoderBase):
     def __init__(self, width, height, colors):
         super(RLE8Decoder, self).__init__(width=width, height=height, colors=colors)
 
-    def decode_frame(self, bytes, size, keyframe=True):
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
         row, col = 0, 0
         mode = 0
         if keyframe:
             self._image[:, :, :] = 0
-        data = np.frombuffer(bytes, dtype='<B', count=size)
+        data = np.frombuffer(buffer, dtype='<B', count=size)
         for count, color_idx in chunkwise(data, count=2, fill_value=0x0):
             if mode == 'delta':
                 col += count

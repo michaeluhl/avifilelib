@@ -28,7 +28,7 @@ class DecoderBase(object):
     def image(self):
         return np.flip(self._image, axis=0)
 
-    def decode_frame(self, bytes, size, keyframe=True):
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
         raise NotImplementedError()
 
     @classmethod
