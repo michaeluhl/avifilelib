@@ -337,6 +337,9 @@ class AviMoviList(object):
             self.streams.setdefault(chunk.stream_id, []).append(chunk)
             self.by_offset[chunk.absolute_offset - self.absolute_offset -4] = chunk
 
+    def __getitem__(self, item):
+        return self.streams[item]
+
     def get_by_index_entry(self, entry):
         chunk = self.get_by_movi_offset(entry.offset)
         chunk.flags = entry.flags

@@ -1,7 +1,7 @@
 from itertools import zip_longest
 
 import numpy as np
-from libavifile.enums import FCC_TYPE
+from libavifile.enums import FCC_TYPE, AVIIF
 
 
 def chunkwise(iterable, count=2, fill_value=None):
@@ -28,9 +28,10 @@ class DecoderBase(object):
     def image(self):
         return np.flip(self._image, axis=0)
 
-    def decode_frame_chunk(self, chunk, keyframe=True):
-        chunk.seek(0)
-        buffer = chunk.read()
+    def decode_frame_chunk(self, stream_chunk, keyframe=False):
+        stream_chunk.seek(0)
+        buffer = stream_chunk.read()
+        keyframe = AVIIF.KEYFRAME in stream_chunk.flags or keyframe
         return self.decode_frame_buffer(buffer=buffer,
                                         size=len(buffer),
                                         keyframe=keyframe)
