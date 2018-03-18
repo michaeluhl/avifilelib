@@ -70,8 +70,6 @@ class BMP8Decoder(BMPDecoderBase):
     COMPRESSION = BI_COMPRESSION.BI_RGB
 
     def decode_frame_buffer(self, buffer, size, keyframe=True):
-        row, col = 0, 0
-        mode = 0
         if keyframe:
             self._image[:, :, :] = 0
         file = BytesIO(buffer)
@@ -93,6 +91,30 @@ class BMP8Decoder(BMPDecoderBase):
                 if i < self.width:
                     self._image[j, i, :] = colors[idx, :]
         file.close()
+        if self._flip == BMP_DRAW_ORDER.TOP_DOWN:
+            return np.flip(self._image, axis=0)
+        return np.array(self._image)
+
+
+class BMP16Decoder(BMPDecoderBase):
+
+    BIT_COUNT = 16
+    COMPRESSION = BI_COMPRESSION.BI_RGB
+
+    RED_MASK = 0x7C00
+    RED_SHIFT = 10
+    GREEN_MASK = 0x3E0
+    GREEN_SHIFT = 5
+    BLUE_MASK = 0x1F
+    BLUE_SHIFT = 0
+
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
+        data = np.frombuffer(buffer, dtype='<u2', count=size // 2)
+        data.shape = (self.height, self.width)
+        self._image[:, :, 0] = np.right_shift(np.bitwise_and(data, self.RED_MASK), self.RED_SHIFT)
+        self._image[:, :, 1] = np.right_shift(np.bitwise_and(data, self.GREEN_MASK), self.GREEN_SHIFT)
+        self._image[:, :, 2] = np.right_shift(np.bitwise_and(data, self.BLUE_MASK), self.BLUE_SHIFT)
+        self._image[:, :, :] = np.left_shift(self._image, 3)
         if self._flip == BMP_DRAW_ORDER.TOP_DOWN:
             return np.flip(self._image, axis=0)
         return np.array(self._image)
