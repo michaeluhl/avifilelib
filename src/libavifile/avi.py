@@ -1,28 +1,9 @@
-from chunk import Chunk
-from contextlib import closing, contextmanager
+from contextlib import closing
 from struct import unpack
 
 import numpy as np
 from libavifile.enums import BI_COMPRESSION, AVIF, AVIIF, AVISF, FCC_TYPE, STREAM_DATA_TYPES
-
-
-class ChunkTypeException(Exception):
-    pass
-
-
-class ChunkFormatException(Exception):
-    pass
-
-
-@contextmanager
-def rollback(file_like, reraise=False):
-    posn = file_like.tell()
-    try:
-        yield file_like
-    except ChunkTypeException:
-        file_like.seek(posn)
-        if reraise:
-            raise
+from libavifile.riff import rollback, RIFFChunk, ChunkTypeException, ChunkFormatException
 
 
 class AviFileHeader(object):
@@ -440,24 +421,6 @@ class AviOldIndex(object):
             while idx1_chunk.tell() < idx1_chunk.getsize():
                 index.append(AviOldIndexEntry.from_chunk(idx1_chunk))
             return cls(index=index)
-
-
-class RIFFChunk(Chunk):
-
-    def __init__(self, file, align=False, bigendian=False, inclheader=False):
-        super(RIFFChunk, self).__init__(file=file,
-                                        align=align,
-                                        bigendian=bigendian,
-                                        inclheader=inclheader)
-        self.__list_type = None
-        if self.getname() == b'LIST':
-            self.__list_type = self.read(4).decode('ASCII')
-
-    def islist(self):
-        return self.__list_type is not None
-
-    def getlisttype(self):
-        return self.__list_type
 
 
 class AviFile(object):
