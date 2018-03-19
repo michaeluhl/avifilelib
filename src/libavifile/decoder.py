@@ -26,7 +26,7 @@ class DecoderBase(object):
 
     @property
     def image(self):
-        return np.flip(self._image, axis=0)
+        return np.array(self._image)
 
     def decode_frame_chunk(self, stream_chunk, keyframe=False):
         stream_chunk.seek(0)

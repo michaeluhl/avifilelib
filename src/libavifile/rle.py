@@ -72,7 +72,7 @@ class RLE4Decoder(RLEDecoderBase):
                 self._image[row, col:col + count:2, :] = self._colors[color_idx >> 4, :]
                 self._image[row, col + 1:col + count:2, :] = self._colors[color_idx & 0x0F, :]
                 col += count
-        return np.flip(self._image, axis=0)
+        return np.array(self._image)
 
 
 class RLE8Decoder(RLEDecoderBase):
@@ -114,4 +114,4 @@ class RLE8Decoder(RLEDecoderBase):
             else:
                 self._image[row, col:col + count, :] = self._colors[color_idx, :]
                 col += count
-        return np.flip(self._image, axis=0)
+        return np.array(self._image)
