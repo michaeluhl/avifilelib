@@ -118,3 +118,36 @@ class BMP16Decoder(BMPDecoderBase):
         if self._flip == BMP_DRAW_ORDER.TOP_DOWN:
             return np.flip(self._image, axis=0)
         return np.array(self._image)
+
+
+class BMP24Decoder(BMPDecoderBase):
+
+    BIT_COUNT = 24
+    COMPRESSION = BI_COMPRESSION.BI_RGB
+
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
+        data = np.frombuffer(buffer, dtype='<B', count=size)
+        scanwidth = self.width * 3 if self.width * 3 % 4 == 0 else self.width * 3 + self.width * 3 % 4
+        data.shape = (self.height, scanwidth)
+        self._image[:, :, 0] = data[:, 0:self.width * 3:3]
+        self._image[:, :, 1] = data[:, 1:self.width * 3:3]
+        self._image[:, :, 2] = data[:, 2:self.width * 3:3]
+        if self._flip == BMP_DRAW_ORDER.TOP_DOWN:
+            return np.flip(self._image, axis=0)
+        return np.array(self._image)
+
+
+class BMP32Decoder(BMPDecoderBase):
+
+    BIT_COUNT = 32
+    COMPRESSION = BI_COMPRESSION.BI_RGB
+
+    def decode_frame_buffer(self, buffer, size, keyframe=True):
+        data = np.frombuffer(buffer, dtype='<B', count=size)
+        data.shape = (self.height, self.width*4)
+        self._image[:, :, 0] = data[:,2::4]
+        self._image[:, :, 1] = data[:,1::4]
+        self._image[:, :, 2] = data[:,0::4]
+        if self._flip == BMP_DRAW_ORDER.TOP_DOWN:
+            return np.flip(self._image, axis=0)
+        return np.array(self._image)
