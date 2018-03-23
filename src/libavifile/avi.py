@@ -7,7 +7,7 @@ from libavifile.riff import rollback, RIFFChunk, ChunkTypeException, ChunkFormat
 
 
 class AviFileHeader(object):
-    
+
     def __init__(self, micro_sec_per_frame, max_bytes_per_sec,
                  padding_granularity, flags, total_frames,
                  initial_frames, streams, suggested_buffer_size,
@@ -108,13 +108,14 @@ class AviStreamHeader(object):
     @classmethod
     def from_chunk(cls, parent_chunk):
         with closing(RIFFChunk(parent_chunk)) as strh_chunk:
+            size = strh_chunk.getsize()
+            if size not in (48, 56, 64):
+                raise ChunkFormatException('Invalid Stream Header Size ({})'.format(strh_chunk.getsize()))
+            if size == 48:
+                return cls(*unpack('<4s4sI2H8I', strh_chunk.read()), tuple())
             unpack_format = '<4s4sI2H8I4h'
             if strh_chunk.getsize() == 64:
                 unpack_format = '<4s4sI2H8I4l'
-            elif strh_chunk.getsize == 48:
-                unpack_format = '<4s4sI2H8I'
-            if strh_chunk.getsize() not in (48, 56, 64):
-                raise ChunkFormatException('Invalid Stream Header Size ({})'.format(strh_chunk.getsize()))
             strh_values = unpack(unpack_format, strh_chunk.read())
             return cls(*strh_values[:-4], strh_values[-4:])
 
