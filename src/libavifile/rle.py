@@ -1,9 +1,31 @@
+"""Decoders for Microsoft RLE formats.
+
+This package provides decoders capable of decoding frames
+encoded using the Microsoft RLE4 and RLE8 formats.
+"""
 import numpy as np
 from libavifile.decoder import chunkwise, DecoderBase
 from libavifile.enums import BI_COMPRESSION, FCC_TYPE
 
 
 class RLEDecoderBase(DecoderBase):
+    """Base class for RLE formats.
+
+    This class provides the foundation for run-length encoding decoders.
+    Both the RLE4 and RLE8 formats require color paletes, and therefore
+    this class accepts a color palate/table as an argument.
+
+    Parameters
+    ----------
+        width : int
+                Width of the image to be decoded.
+        height : int
+                Height of the image to be decoded.
+        colors : numpy.ndarray, dtype=uint8
+                 N x 3 of red, green, and blue values, where N is
+                 2^4 or 2^8 depending on the type of RLE compression.
+
+    """
 
     COMPRESSION = (BI_COMPRESSION.BI_RLE4, BI_COMPRESSION.BI_RLE8)
 
@@ -14,10 +36,22 @@ class RLEDecoderBase(DecoderBase):
 
     @property
     def colors(self):
+        """Get the color table."""
         return self._colors
 
     @classmethod
     def for_avi_stream(cls, stream_definition):
+        """Attempts to find a decoder implementation for a stream.
+
+        Subclasses of :class:`RLEDecoderBase` are selected by matching
+        the value of `COMPRESSION`.
+
+        Returns
+        -------
+            object
+                A subclass of :class:`RLEDecoderBase`.
+
+        """
         fcc_type = stream_definition.strh.fcc_type
         if fcc_type != FCC_TYPE.VIDEO:
             raise RuntimeError('Stream {} is not a video stream.')
@@ -32,6 +66,21 @@ class RLEDecoderBase(DecoderBase):
 
 
 class RLE4Decoder(RLEDecoderBase):
+    """Decoder for RLE4 compression.
+
+    This class implements a decoder for the RLE4 compression
+    algorithm.
+
+    Parameters
+    ----------
+        width : int
+                Width of the image to be decoded.
+        height : int
+                Height of the image to be decoded.
+        colors : numpy.ndarray, dtype=uint8
+                 16 x 3 of red, green, and blue values.
+
+    """
 
     COMPRESSION = BI_COMPRESSION.BI_RLE4
 
@@ -39,6 +88,28 @@ class RLE4Decoder(RLEDecoderBase):
         super(RLE4Decoder, self).__init__(width=width, height=height, colors=colors)
 
     def decode_frame_buffer(self, buffer, size, keyframe=True):
+        """Decode a frame from a :py:class:`bytes` object.
+
+        Decodes a single frame from the data contained in `buffer`.
+
+        Parameters
+        ----------
+            buffer : bytes
+                     A :py:class:`bytes` object containing the frame
+                     data.
+            size : int
+                   Size of the data in the buffer.
+            keyframe : bool
+                       Indicates to the decoder that this chunk
+                       contains a key frame.
+
+        Returns
+        -------
+            numpy.ndarray
+                A two dimensional array of dimensions `height` by `width`
+                containing the resulting image.
+
+        """
         row, col = 0, 0
         mode = 0
         if keyframe:
@@ -76,6 +147,21 @@ class RLE4Decoder(RLEDecoderBase):
 
 
 class RLE8Decoder(RLEDecoderBase):
+    """Decoder for RLE8 compression.
+
+    This class implements a decoder for the RLE8 compression
+    algorithm.
+
+    Parameters
+    ----------
+        width : int
+                Width of the image to be decoded.
+        height : int
+                Height of the image to be decoded.
+        colors : numpy.ndarray, dtype=uint8
+                 256 x 3 of red, green, and blue values.
+
+    """
 
     COMPRESSION = BI_COMPRESSION.BI_RLE8
 
@@ -83,6 +169,28 @@ class RLE8Decoder(RLEDecoderBase):
         super(RLE8Decoder, self).__init__(width=width, height=height, colors=colors)
 
     def decode_frame_buffer(self, buffer, size, keyframe=True):
+        """Decode a frame from a :py:class:`bytes` object.
+
+        Decodes a single frame from the data contained in `buffer`.
+
+        Parameters
+        ----------
+            buffer : bytes
+                     A :py:class:`bytes` object containing the frame
+                     data.
+            size : int
+                   Size of the data in the buffer.
+            keyframe : bool
+                       Indicates to the decoder that this chunk
+                       contains a key frame.
+
+        Returns
+        -------
+            numpy.ndarray
+                A two dimensional array of dimensions `height` by `width`
+                containing the resulting image.
+
+        """
         row, col = 0, 0
         mode = 0
         if keyframe:

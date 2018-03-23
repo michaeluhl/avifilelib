@@ -4,6 +4,28 @@ from contextlib import contextmanager
 
 @contextmanager
 def rollback(file_like, reraise=False):
+    """Context manager to recover from failed chunk creation.
+
+    This context manager can be used to wrap calls to methods that attempt to
+    read a RIFF chunk but require the chunk to be of a specific type.  If the
+    method raises a :class:`ChunkTypeException`, this context manager catches
+    the `ChunkTypeException` and rewinds the `file_like` object to its position
+    before the failed call.
+
+    Parameters
+    ----------
+        file_like : file-like
+                    A file-like object (having at least `tell()` and `seek()` methods).
+        reraise : bool
+                  If `True`, any :class:`ChunkTypeException` raised while within
+                  the context manager will be reraised after `file_like` is rewound.
+
+    Yields
+    ------
+        file-like
+            the object `file_like` passed as a parameter.
+
+    """
     posn = file_like.tell()
     try:
         yield file_like
@@ -14,6 +36,26 @@ def rollback(file_like, reraise=False):
 
 
 class RIFFChunk(Chunk):
+    """A class for reading RIFF chunks.
+
+    A customized version of the :py:class:`chunk.Chunk` class to be used for reading RIFF files.
+    The main customization being that the `bigendian` parameter defaults to `False` rather than
+    `True`.  Additionally, the object will correctly handle RIFF 'LIST' chunks.
+
+    Parameters
+    ----------
+    file : file_like
+           A file-like object (has `read()`, `seek()`, and `tell()` methods.
+    align : bool
+            Indicates whether the chunk should aligned to a 2-byte boundary.
+    bigendian : bool
+            Indicates whether the byte order of the data should be big endian
+            or little endian.
+    inclheader : bool
+                 Specifies whether the chunk size that will be read includes
+                 the size of the chunk header (name and size).
+
+    """
 
     def __init__(self, file, align=False, bigendian=False, inclheader=False):
         super(RIFFChunk, self).__init__(file=file,
@@ -25,15 +67,34 @@ class RIFFChunk(Chunk):
             self.__list_type = self.read(4).decode('ASCII')
 
     def islist(self):
+        """Indicates if the chunk contains a RIFF list.
+
+        Returns
+        -------
+            bool
+                `True` if the chunk contains a RIFF list.
+
+        """
         return self.__list_type is not None
 
     def getlisttype(self):
+        """Type of RIFF list.
+
+        Returns
+        -------
+            str
+                The four character type identifier of the RIFF list or
+                `None` if the chunk is not a RIFF list.
+
+        """
         return self.__list_type
 
 
 class ChunkTypeException(Exception):
+    """Raised when the underlying chunk data does not match the expected RIFF type."""
     pass
 
 
 class ChunkFormatException(Exception):
+    """Raised when the underlying chunk data does not match the expected format."""
     pass
