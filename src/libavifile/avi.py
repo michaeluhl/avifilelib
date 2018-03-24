@@ -2,6 +2,7 @@ from contextlib import closing
 from struct import unpack
 
 import numpy as np
+from libavifile.decoder import DecoderBase
 from libavifile.enums import BI_COMPRESSION, AVIF, AVIIF, AVISF, FCC_TYPE, STREAM_DATA_TYPES
 from libavifile.riff import rollback, RIFFChunk, ChunkTypeException, ChunkFormatException
 
@@ -222,7 +223,7 @@ class AviStreamName(object):
 
 class AviStreamChunk(object):
 
-    def __init__(self, stream_id, data_type, base_file, absolute_offset, size, flags=0):
+    def __init__(self, stream_id, data_type, base_file, absolute_offset, size, flags=0, skip=False):
         self.stream_id = stream_id
         self.data_type = STREAM_DATA_TYPES(data_type)
         self.base_file = base_file
@@ -230,6 +231,7 @@ class AviStreamChunk(object):
         self.size = size
         self.size_read = 0
         self.__flags = AVIIF(flags)
+        self.skip = skip
 
     @property
     def flags(self):
@@ -328,6 +330,11 @@ class AviMoviList(object):
 
     def __getitem__(self, item):
         return self.streams[item]
+
+    def apply_index(self, index):
+        for entry in index.index:
+            chunk = self.by_offset[entry.offset]
+            chunk.flags = entry.flags
 
     def get_by_index_entry(self, entry):
         chunk = self.get_by_movi_offset(entry.offset)
@@ -462,6 +469,7 @@ class AviFile(object):
         self.old_index = None
         try:
             self.old_index = AviOldIndex.from_file(self.__file)
+            self.stream_content.apply_index(self.old_index)
         except ChunkTypeException:
             if AVIF.MUSTUSEINDEX in self.avi_header.flags:
                 raise ValueError('AVI header requires use of index and index is missing.')
@@ -481,6 +489,13 @@ class AviFile(object):
     @property
     def idx1(self):
         return self.old_index
+
+    def iter_frames(self, stream_id):
+        stream_definition = self.stream_definitions[stream_id]
+        decoder = DecoderBase.for_avi_stream(stream_definition=stream_definition)
+        for stream_chunk in self.stream_content.iter_chunks(stream=stream_id):
+            yield decoder.decode_frame_chunk(stream_chunk=stream_chunk,
+                                             keyframe=True)
 
     def close(self):
         if not self.__file.closed:
