@@ -2,7 +2,7 @@ import numpy as np
 from enum import Enum
 from io import BytesIO
 from struct import unpack
-from libavifile.avi import BitmapInfoHeaders
+from libavifile.definition import BitmapInfoHeaders
 from libavifile.decoder import chunkwise, DecoderBase
 from libavifile.enums import BI_COMPRESSION, FCC_TYPE
 
