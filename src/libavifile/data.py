@@ -48,6 +48,7 @@ class AviStreamChunk(object):
             raise RuntimeError
         self.base_file.seek(self.absolute_offset + pos, 0)
         self.size_read = pos
+        return pos
 
     def tell(self):
         if self.base_file.closed:
@@ -115,33 +116,21 @@ class AviMoviList(object):
         return self.streams[item]
 
     def apply_index(self, index):
+        # If there's an index, some of the chunks may be skipped, so
+        # set them all to be skipped, and then...
+        for chunk in self.data_chunks:
+            chunk.skip = True
         for entry in index.index:
             chunk = self.by_offset[entry.offset]
             chunk.flags = entry.flags
-
-    def get_by_index_entry(self, entry):
-        chunk = self.get_by_movi_offset(entry.offset)
-        chunk.flags = entry.flags
-        return chunk
-
-    def get_by_movi_offset(self, movi_offset):
-        return self.by_offset[movi_offset]
-
-    def iter_chunks_by_index(self, index, stream=None):
-        if stream and stream not in self.streams:
-            raise RuntimeError('Invalid stream id: {}'.format(stream))
-        for entry in index.index:
-            chunk = self.get_by_index_entry(entry=entry)
-            if not stream or chunk.stream_id == stream:
-                yield chunk
-            else:
-                continue
+            # Un-skip it in when processing the index
+            chunk.skip = False
 
     def iter_chunks(self, stream=None):
         if stream and stream not in self.streams:
             raise RuntimeError('Invalid stream id: {}'.format(stream))
         for chunk in self.data_chunks:
-            if not stream or chunk.stream_id == stream:
+            if (not stream or chunk.stream_id == stream) and not chunk.skip:
                 yield chunk
             else:
                 continue
