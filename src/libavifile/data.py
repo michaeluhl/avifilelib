@@ -27,7 +27,9 @@ class AviStreamChunk(object):
     """A block of data representing a portion of an audio or video stream.
 
     For a video stream, a stream chunk would typically represent a single
-    frame.
+    frame.  This class does not load the data into memory, but does provide
+    an interface to read the data associated with the chunk from the file
+    system.
 
     Parameters
     ----------
@@ -117,6 +119,24 @@ class AviStreamChunk(object):
 
     @classmethod
     def load(cls, file_like):
+        """Create an AviStreamChunk structure.
+
+        This method creates an :py:class:`AviStreamChunk` from the contents of
+        an AVI 'movi' or 'rec ' list.  Note that this does not actually load
+        the data associated with the stream chunk.
+
+        Parameters
+        ----------
+            file_like : file-like
+                A file-like object positioned at the start of a stream
+                data chunk.
+
+        Returns
+        -------
+            :py:class:`AviStreamChunk`
+                An `AviStreamChunk` that may be used to read the data for this chunk.
+
+        """
         with closing(RIFFChunk(file_like, align=True)) as strm_chunk:
             chunk_id = strm_chunk.getname().decode('ASCII')
             try:
@@ -146,12 +166,44 @@ class AviStreamChunk(object):
 
 
 class AviRecList(object):
+    """Used to read 'rec ' lists within an AVI file.
+
+    Note that this class is used only to facilitate the loading of stream
+    data chunks contained with 'rec ' lists.  `libavifile` does not maintain
+    the 'rec ' list structure after the stream data chunks have been
+    identified.  All stream data chunks contained within 'rec ' lists are
+    reparented to belong to the 'movi' (represented by an :py:class:`AviMoviList`)
+    instead.
+
+    Parameters
+    ----------
+        data_chunks : list
+            A list containing :py:class:`AviStreamChunk` objects.
+
+    """
 
     def __init__(self, data_chunks=None):
         self.data_chunks = data_chunks if data_chunks else []
 
     @classmethod
     def load(cls, file_like):
+        """Create an AviRecList structure.
+
+        This method creates an :py:class:`AviRecList` from the contents of
+        an AVI 'rec ' list.  Note that this does not actually load
+        the data associated with the contained stream chunks.
+
+        Parameters
+        ----------
+            file_like : file-like
+                A file-like object positioned at the start of a 'rec ' list.
+
+        Returns
+        -------
+            :py:class:`AviRecList`
+                An `AviRecList` containing :py:class:`AviStreamChunk` objects.
+
+        """
         with closing(RIFFChunk(file_like)) as rec_list:
             if not rec_list.islist() or rec_list.getname() != b'rec ':
                 raise ChunkTypeException()
@@ -162,6 +214,24 @@ class AviRecList(object):
 
 
 class AviMoviList(object):
+    """Used to read the 'movi' list within an AVI file.
+
+    This class is used to facilitate the loading of stream data chunks
+    contained with the 'movi' list and to make those chunks acessible
+    for later decoding.  Because the AVI index structure identifies
+    chunks by their offset from the start of the 'movi' list, the
+    absolute offset of the start of the 'movi' list is required in
+    order to compute the relative offsets of the contained data chunks.
+
+    Parameters
+    ----------
+        absolute_offset : int
+            Absolute offset in bytes of the the start of the 'movi'
+            list data section from the start of the underlying file.
+        data_chunks : list
+            A list of :py:class:`AviStreamChunk` objects.
+
+    """
 
     def __init__(self, absolute_offset=0, data_chunks=None):
         self.absolute_offset = absolute_offset
@@ -176,6 +246,14 @@ class AviMoviList(object):
         return self.streams[item]
 
     def apply_index(self, index):
+        """Apply flags and skipping as defined by an AVI Index.
+
+        Parameters
+        ----------
+            index : :py:class:`libavifile.index.AviV1Index`
+                An index containing AVI indexing information.
+
+        """
         # If there's an index, some of the chunks may be skipped, so
         # set them all to be skipped, and then...
         for chunk in self.data_chunks:
@@ -187,6 +265,19 @@ class AviMoviList(object):
             chunk.skip = False
 
     def iter_chunks(self, stream=None):
+        """Return an iterator over the chunks in a stream.
+
+        Parameters
+        ----------
+            stream : int
+                Stream identifier of the stream to be iterated over.
+
+        Returns
+        -------
+            generator
+                A generator that iterates over the chunks in a stream.
+
+        """
         if stream and stream not in self.streams:
             raise RuntimeError('Invalid stream id: {}'.format(stream))
         for chunk in self.data_chunks:
@@ -197,6 +288,23 @@ class AviMoviList(object):
 
     @classmethod
     def load(cls, file_like):
+        """Create an AviMoviList structure.
+
+        This method creates an :py:class:`AviMoviList` from the contents of
+        an AVI 'movi' list.  Note that this does not actually load
+        the data associated with the contained stream chunks.
+
+        Parameters
+        ----------
+            file_like : file-like
+                A file-like object positioned at the start of a 'movi' list.
+
+        Returns
+        -------
+            :py:class:`AviMoviList`
+                An `AviMoviList` containing :py:class:`AviStreamChunk` objects.
+
+        """
         with closing(RIFFChunk(file=file_like)) as movi_list:
             if not movi_list.islist() or movi_list.getlisttype() != 'movi':
                 raise ChunkTypeException('Chunk: {}, {}, {}'.format(movi_list.getname().decode('ASCII'),
