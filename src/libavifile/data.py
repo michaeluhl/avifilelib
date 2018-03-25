@@ -1,3 +1,22 @@
+"""AVI Stream Data classes.
+
+This module contains classes for handling the stream data within
+an AVI file.  These classes include :py:class:`AviMoviList` which represents
+the list structure containing stream data within the AVI file.  The 'movi'
+list may optionally contain 'rec ' lists (represented by the :py:class:`AviRecList`
+class).  'rec ' lists are used to group stream data chunks to indicate that they
+should all be read from disk at the same time.  This library does not preload data,
+and therefore, does not take any special action based on the presence of 'rec '
+lists within the 'movi' list.  Further, upon the location and parsing of a 'rec '
+list within an AVI file, `libavifile` simply adds the data chunks contained in the
+'rec ' list directly into the 'movi' list.
+
+Finally, this module provides the :py:class:`AviStreamChunk` class to represent a
+chunk of stream data within the AVI file.  Note that the `flags` applicable to a
+stream chunk are identified in the :py:class:`libavifile.index.AviV1Index`, and
+therefore will not normally be available when AviStreamChunks are created.
+
+"""
 from contextlib import closing
 
 from libavifile.enums import STREAM_DATA_TYPES, AVIIF
@@ -5,6 +24,29 @@ from libavifile.riff import RIFFChunk, ChunkFormatException, ChunkTypeException,
 
 
 class AviStreamChunk(object):
+    """A block of data representing a portion of an audio or video stream.
+
+    For a video stream, a stream chunk would typically represent a single
+    frame.
+
+    Parameters
+    ----------
+        stream_id : int
+            Identifier of the stream.
+        data_type : STREAM_DATA_TYPES
+            Identifies the kind of data stored in the chunk.
+        base_file : file-like
+            File-like object from which the data should be read.
+        absolute_offset : int
+            Offset from the start of the 'MOVI' list.
+        size : int
+            Size of the chunk.
+        flags : AVIIF
+            Flags associated with the frame.
+        skip : bool
+            If `True` the chunk will be skipped when iterating over the chunks.
+
+        """
 
     def __init__(self, stream_id, data_type, base_file, absolute_offset, size, flags=0, skip=False):
         self.stream_id = stream_id
@@ -18,13 +60,16 @@ class AviStreamChunk(object):
 
     @property
     def flags(self):
+        """Get the AVIIF flags for the chunks."""
         return self.__flags
 
     @flags.setter
     def flags(self, flags):
+        """Set the AVIIF flags for the chunks."""
         self.__flags = AVIIF(flags)
 
     def read(self, size=-1):
+        """Read `size` bytes from the underlying file."""
         if self.base_file.closed:
             raise ValueError("I/O operation on closed file")
         if self.size_read >= self.size:
@@ -38,6 +83,20 @@ class AviStreamChunk(object):
         return data
 
     def seek(self, pos, whence=0):
+        """Change the stream position to the given byte `pos`. `pos` is
+        interpreted relative to the position indicated by `whence`. The default
+        value for `whence` is `SEEK_SET`. Values for `whence` are:
+
+        * 0 – start of the chunk (the default); offset should be zero or positive
+        * 1 – current chunk position; offset may be negative
+        * 2 – end of the chunk; offset is usually negative
+
+        Returns
+        -------
+            int
+                the new absolute position relative to the start of the stream chunk.
+
+        """
         if self.base_file.closed:
             raise ValueError("I/O operation on closed file")
         if whence == 1:
@@ -51,6 +110,7 @@ class AviStreamChunk(object):
         return pos
 
     def tell(self):
+        """Return the current position in the chunk."""
         if self.base_file.closed:
             raise ValueError("I/O operation on closed file")
         return self.size_read
