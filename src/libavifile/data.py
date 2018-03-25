@@ -56,8 +56,8 @@ class AviStreamChunk(object):
         return self.size_read
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk, align=True)) as strm_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like, align=True)) as strm_chunk:
             chunk_id = strm_chunk.getname().decode('ASCII')
             try:
                 stream_id = int(chunk_id[:2])
@@ -65,15 +65,15 @@ class AviStreamChunk(object):
                 strm_chunk.seek(0)
                 raise ChunkFormatException('Could not decode stream index: '
                                            '{} @ offset 0x{:08x}'.format(chunk_id[:2],
-                                                                         parent_chunk.tell()))
+                                                                         file_like.tell()))
             try:
                 data_type = STREAM_DATA_TYPES(chunk_id[2:])
             except ValueError:
                 strm_chunk.seek(0)
                 raise ChunkFormatException('Could not determine stream data type: '
                                            '{} @ offset 0x{:08x}'.format(chunk_id[2:],
-                                                                         parent_chunk.tell()))
-            base_file = parent_chunk
+                                                                         file_like.tell()))
+            base_file = file_like
             while isinstance(base_file, RIFFChunk):
                 base_file = base_file.file
             absolute_offset = base_file.tell()
@@ -91,13 +91,13 @@ class AviRecList(object):
         self.data_chunks = data_chunks if data_chunks else []
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as rec_list:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as rec_list:
             if not rec_list.islist() or rec_list.getname() != b'rec ':
                 raise ChunkTypeException()
             data_chunks = []
             while rec_list.tell() < rec_list.getsize() - 1:
-                data_chunks.append(AviStreamChunk.from_chunk(rec_list))
+                data_chunks.append(AviStreamChunk.load(rec_list))
             return cls(data_chunks=data_chunks)
 
 
@@ -136,19 +136,22 @@ class AviMoviList(object):
                 continue
 
     @classmethod
-    def from_file(cls, file):
-        with closing(RIFFChunk(file=file)) as movi_list:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file=file_like)) as movi_list:
             if not movi_list.islist() or movi_list.getlisttype() != 'movi':
                 raise ChunkTypeException('Chunk: {}, {}, {}'.format(movi_list.getname().decode('ASCII'),
                                                                     movi_list.getsize(),
                                                                     movi_list.getlisttype()))
-            absolute_offset = file.tell()
+            base_file = file_like
+            while isinstance(base_file, RIFFChunk):
+                base_file = base_file.file
+            absolute_offset = base_file.tell()
             data_chunks = []
             while movi_list.tell() < movi_list.getsize() - 1:
                 try:
                     with rollback(movi_list, reraise=True):
-                        rec_list = AviRecList.from_chunk(parent_chunk=movi_list)
+                        rec_list = AviRecList.load(file_like=movi_list)
                         data_chunks.extend(rec_list.data_chunks)
                 except ChunkTypeException:
-                    data_chunks.append(AviStreamChunk.from_chunk(movi_list))
+                    data_chunks.append(AviStreamChunk.load(movi_list))
             return cls(absolute_offset=absolute_offset, data_chunks=data_chunks)

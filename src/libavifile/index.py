@@ -22,8 +22,8 @@ class AviV1IndexEntry(object):
                                                  self.size)
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        entry_data = unpack('4s3I', parent_chunk.read(16))
+    def load(cls, file_like):
+        entry_data = unpack('4s3I', file_like.read(16))
         return cls(entry_data[0].decode('ASCII'), *entry_data[1:])
 
 
@@ -42,11 +42,11 @@ class AviV1Index(object):
         return AviV1Index(index=[e for e in self.index if e.data_type == data_type])
 
     @classmethod
-    def from_file(cls, file):
-        with closing(RIFFChunk(file)) as idx1_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as idx1_chunk:
             if idx1_chunk.getname() != b'idx1':
                 raise ChunkTypeException()
             index = []
             while idx1_chunk.tell() < idx1_chunk.getsize():
-                index.append(AviV1IndexEntry.from_chunk(idx1_chunk))
+                index.append(AviV1IndexEntry.load(idx1_chunk))
             return cls(index=index)

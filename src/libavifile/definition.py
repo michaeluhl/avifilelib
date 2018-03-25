@@ -33,26 +33,25 @@ class AviStreamDefinition(object):
         return self.stream_name
 
     @classmethod
-    def from_chunk(cls, stream_id, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strl_chunk:
+    def load(cls, stream_id, file_like):
+        with closing(RIFFChunk(file_like)) as strl_chunk:
             if not strl_chunk.islist() or strl_chunk.getlisttype() != 'strl':
                 raise ChunkTypeException('Non-"strl" Chunk: {}, {}, {}'.format(
                     strl_chunk.getname().decode('ASCII'),
                     strl_chunk.getsize(),
                     strl_chunk.getlisttype()
                 ))
-            strh = AviStreamHeader.from_chunk(strl_chunk)
-            strf = AviStreamFormat.from_chunk(stream_header=strh,
-                                              parent_chunk=strl_chunk)
+            strh = AviStreamHeader.load(strl_chunk)
+            strf = AviStreamFormat.load(stream_header=strh, file_like=strl_chunk)
             strd = None
             strn = None
             try:
                 with rollback(strl_chunk):
-                    strd = AviStreamData.from_chunk(parent_chunk=strl_chunk)
+                    strd = AviStreamData.load(file_like=strl_chunk)
                 with rollback(strl_chunk):
-                    strn = AviStreamName.from_chunk(parent_chunk=strl_chunk)
+                    strn = AviStreamName.load(file_like=strl_chunk)
                 with rollback(strl_chunk):
-                    _ = AviJunkChunk.from_file(strl_chunk)
+                    _ = AviJunkChunk.load(file_like=strl_chunk)
             except EOFError:
                 pass
             return cls(stream_id=stream_id, stream_header=strh, stream_format=strf, stream_data=strd, stream_name=strn)
@@ -81,8 +80,8 @@ class AviStreamHeader(object):
         self.frame = frame
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strh_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as strh_chunk:
             size = strh_chunk.getsize()
             if size not in (48, 56, 64):
                 raise ChunkFormatException('Invalid Stream Header Size ({})'.format(strh_chunk.getsize()))
@@ -98,11 +97,11 @@ class AviStreamHeader(object):
 class AviStreamFormat(object):
 
     @classmethod
-    def from_chunk(cls, stream_header, parent_chunk):
+    def load(cls, stream_header, file_like):
         for scls in cls.__subclasses__():
             if getattr(scls, 'FCC_TYPE', None) == stream_header.fcc_type:
-                return scls.from_chunk(stream_header, parent_chunk)
-        return UnparsedStreamFormat.from_chunk(stream_header, parent_chunk)
+                return scls.load(stream_header, file_like)
+        return UnparsedStreamFormat.load(stream_header, file_like)
 
 
 class UnparsedStreamFormat(AviStreamFormat):
@@ -111,8 +110,8 @@ class UnparsedStreamFormat(AviStreamFormat):
         self.raw_bytes = raw_bytes
 
     @classmethod
-    def from_chunk(cls, stream_header, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strf_chunk:
+    def load(cls, stream_header, file_like):
+        with closing(RIFFChunk(file_like)) as strf_chunk:
             return cls(strf_chunk.read())
 
 
@@ -140,14 +139,14 @@ class BitmapInfoHeaders(AviStreamFormat):
         self.color_table = None
 
     @classmethod
-    def from_chunk(cls, stream_header, parent_chunk, force_color_table=False):
-        with closing(RIFFChunk(parent_chunk)) as strf_chunk:
-            return cls.from_file(strf_chunk, force_color_table=force_color_table)
+    def load(cls, stream_header, file_like, force_color_table=False):
+        with closing(RIFFChunk(file_like)) as strf_chunk:
+            return cls.load_from_file(strf_chunk, force_color_table=force_color_table)
 
     @classmethod
-    def from_file(cls, file, force_color_table=False):
-        strf = cls(*unpack(cls.UNPACK_FORMAT, file.read(40)))
-        strf.read_colortable(file, force=force_color_table)
+    def load_from_file(cls, file_like, force_color_table=False):
+        strf = cls(*unpack(cls.UNPACK_FORMAT, file_like.read(40)))
+        strf.read_colortable(file_like, force=force_color_table)
         return strf
 
     def read_colortable(self, chunk, force=False):
@@ -173,8 +172,8 @@ class AviStreamData(object):
         self.raw_bytes = raw_bytes
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strd_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as strd_chunk:
             if strd_chunk.getname() == b'strd':
                 return cls(strd_chunk.read())
             raise ChunkTypeException()
@@ -186,8 +185,8 @@ class AviStreamName(object):
         self.name = name
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as strn_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as strn_chunk:
             if strn_chunk.getname() == b'strn':
                 raw_bytes = strn_chunk.read()
                 name = raw_bytes[:raw_bytes.index(b'\0')].decode('ASCII')
@@ -198,7 +197,7 @@ class AviStreamName(object):
 class AviJunkChunk(object):
 
     @classmethod
-    def from_file(cls, file):
-        with closing(RIFFChunk(file)) as junk_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as junk_chunk:
             if junk_chunk.getname() != b'JUNK':
                 raise ChunkTypeException()

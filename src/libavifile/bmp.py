@@ -76,7 +76,7 @@ class BMP8Decoder(BMPDecoderBase):
         colors = self._colors
         try:
             bmpfileheader = BMPFileHeader.from_file(file=file)
-            bitmapheader = BitmapInfoHeaders.from_file(file=file, force_color_table=True)
+            bitmapheader = BitmapInfoHeaders.load_from_file(file_like=file, force_color_table=True)
             if len(bitmapheader.color_table) != 0:
                 colors = bitmapheader.color_table
         except ValueError:

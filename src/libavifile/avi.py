@@ -53,18 +53,18 @@ class AviFile(object):
             self.stream_definitions = []
             for i in range(self.avi_header.streams):
                 self.stream_definitions.append(
-                    AviStreamDefinition.from_chunk(stream_id=len(self.stream_definitions),
-                                                   parent_chunk=hdrl_chunk))
+                    AviStreamDefinition.load(stream_id=len(self.stream_definitions),
+                                             file_like=hdrl_chunk))
         self.stream_content = None
         while not self.stream_content:
             try:
-                self.stream_content = AviMoviList.from_file(self.__file)
+                self.stream_content = AviMoviList.load(self.__file)
             except ChunkTypeException:
                 pass
 
         self.index_v1 = None
         try:
-            self.index_v1 = AviV1Index.from_file(self.__file)
+            self.index_v1 = AviV1Index.load(self.__file)
             self.stream_content.apply_index(self.index_v1)
         except ChunkTypeException:
             if AVIF.MUSTUSEINDEX in self.avi_header.flags:
