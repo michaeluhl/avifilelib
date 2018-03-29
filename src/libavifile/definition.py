@@ -149,7 +149,7 @@ class BitmapInfoHeaders(AviStreamFormat):
         strf.read_colortable(file_like, force=force_color_table)
         return strf
 
-    def read_colortable(self, chunk, force=False):
+    def read_colortable(self, file_like, force=False):
         clr_size = 4*self.clr_used
         self.color_table = []
         if self.clr_used <= 0 and not force:
@@ -158,7 +158,7 @@ class BitmapInfoHeaders(AviStreamFormat):
             clr_size = (2**self.bit_count) * 4
         try:
             colors = unpack('<{}B'.format(clr_size),
-                            chunk.read(clr_size))
+                            file_like.read(clr_size))
             self.color_table = np.array([list(reversed(colors[i:i+3])) for i in range(0, len(colors), 4)],
                                         dtype='B')
             return
