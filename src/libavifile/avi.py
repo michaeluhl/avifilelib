@@ -15,7 +15,7 @@ from libavifile.riff import RIFFChunk, ChunkTypeException
 
 
 class AviFileHeader(object):
-    """_`AVIMAINHEADER` structure
+    """`AVIMAINHEADER`_ structure
 
     Parameters
     ----------
@@ -30,7 +30,7 @@ class AviFileHeader(object):
         total_frames : int
             Total number of frames
         initial_frames : int
-            See _`AVIMAINHEADER`
+            See `AVIMAINHEADER`_
         streams : int
             Number of streams
         suggested_buffer_size : int
@@ -63,8 +63,8 @@ class AviFileHeader(object):
         self.reserved = reserved
 
     @classmethod
-    def from_chunk(cls, parent_chunk):
-        with closing(RIFFChunk(parent_chunk)) as avih_chunk:
+    def load(cls, file_like):
+        with closing(RIFFChunk(file_like)) as avih_chunk:
             avih_values = unpack('14I', avih_chunk.read(56))
             return cls(*avih_values[:10], avih_values[10:])
 
@@ -92,7 +92,7 @@ class AviFile(object):
             raise ValueError('Non-AVI file detected.')
 
         with closing(RIFFChunk(self.__file)) as hdrl_chunk:
-            self.avi_header = AviFileHeader.from_chunk(parent_chunk=hdrl_chunk)
+            self.avi_header = AviFileHeader.load(file_like=hdrl_chunk)
             self.stream_definitions = []
             for i in range(self.avi_header.streams):
                 self.stream_definitions.append(

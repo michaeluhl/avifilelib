@@ -20,7 +20,7 @@ class BMP_DRAW_ORDER(Enum):
 
 
 class BMPFileHeader(object):
-    """_`BITMAPFILEHEADER` structure.
+    """`BITMAPFILEHEADER`_ structure.
 
     .. _BITMAPFILEHEADER: https://msdn.microsoft.com/en-us/library/windows/desktop/dd183374(v=vs.85).aspx
 
