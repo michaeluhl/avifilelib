@@ -1,17 +1,17 @@
-# This file is part of libavifile.
+# This file is part of avifilelib.
 #
-# libavifile is free software: you can redistribute it and/or modify
+# avifilelib is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation, either version 3 of
 # the License, or (at your option) any later version.
 #
-# libavifile is distributed in the hope that it will be useful,
+# avifilelib is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU LesserGeneral Public
-# License along with libavifile.  If not, see
+# License along with avifilelib.  If not, see
 #  <http://www.gnu.org/licenses/>.
 
 """Base class for video stream decoders.
@@ -23,7 +23,7 @@ the included decoders.
 from itertools import zip_longest
 
 import numpy as np
-from libavifile.enums import FCC_TYPE, AVIIF
+from avifilelib.enums import FCC_TYPE, AVIIF
 
 
 def chunkwise(iterable, count=2, fill_value=None):
@@ -87,7 +87,7 @@ class DecoderBase(object):
 
         Parameters
         ----------
-            stream_chunk : :class:`libavifile.avi.AviStreamChunk`
+            stream_chunk : :class:`avifilelib.avi.AviStreamChunk`
                            A data chunk that contains frame data.
             keyframe : bool
                        Indicates to the decoder that this chunk
@@ -142,7 +142,7 @@ class DecoderBase(object):
         handling the stream format defined in `stream_definition`.  Matches are
         made by comparing the `stream_definition.stream_header.compression` field
         to the `COMPRESSION` member of a `DecoderBase` subclass.  The `COMPRESSION`
-        member must be a member of the :class:`libavifile.enums.BI_COMPRESSION`
+        member must be a member of the :class:`avifilelib.enums.BI_COMPRESSION`
         enumeration, or a tuple of such values.  Thus, if a particular compression
         method supports multiple subformats, it is recommended that a subclass base
         for that compression method be written, and the `for_avi_stream()` method
@@ -150,7 +150,7 @@ class DecoderBase(object):
 
         Parameters
         ----------
-            stream_definition : :class:`libavifile.avi.AviStreamDefinition`
+            stream_definition : :class:`avifilelib.avi.AviStreamDefinition`
                                 Stream definition for the stream to be decoded.
 
         Returns

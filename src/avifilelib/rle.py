@@ -1,17 +1,17 @@
-# This file is part of libavifile.
+# This file is part of avifilelib.
 #
-# libavifile is free software: you can redistribute it and/or modify
+# avifilelib is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation, either version 3 of
 # the License, or (at your option) any later version.
 #
-# libavifile is distributed in the hope that it will be useful,
+# avifilelib is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU LesserGeneral Public
-# License along with libavifile.  If not, see
+# License along with avifilelib.  If not, see
 #  <http://www.gnu.org/licenses/>.
 
 """Decoders for Microsoft RLE formats.
@@ -20,8 +20,8 @@ This package provides decoders capable of decoding frames
 encoded using the Microsoft RLE4 and RLE8 formats.
 """
 import numpy as np
-from libavifile.decoder import chunkwise, DecoderBase
-from libavifile.enums import BI_COMPRESSION, FCC_TYPE
+from avifilelib.decoder import chunkwise, DecoderBase
+from avifilelib.enums import BI_COMPRESSION, FCC_TYPE
 
 
 class RLEDecoderBase(DecoderBase):

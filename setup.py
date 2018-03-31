@@ -1,18 +1,18 @@
 from setuptools import setup
 
 
-exec(open('./src/libavifile/__about__.py', 'rt').read())
+exec(open('./src/avifilelib/__about__.py', 'rt').read())
 
 
-setup(name='libavifile',
+setup(name='avifilelib',
       version=__version__,
       description='A library for reading simple uncompressed'
                   'or RLE compressed AVI files.',
       author=__author__,
-      url='https://github.com/michaeluhl/libavifile',
+      url='https://github.com/michaeluhl/avifilelib',
       license=__license__,
       package_dir={'': 'src'},
-      packages=['libavifile'],
+      packages=['avifilelib'],
       python_requires='>=3',
       install_requires=['numpy'],
       classifiers=[

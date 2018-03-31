@@ -1,17 +1,17 @@
-# This file is part of libavifile.
+# This file is part of avifilelib.
 #
-# libavifile is free software: you can redistribute it and/or modify
+# avifilelib is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation, either version 3 of
 # the License, or (at your option) any later version.
 #
-# libavifile is distributed in the hope that it will be useful,
+# avifilelib is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU LesserGeneral Public
-# License along with libavifile.  If not, see
+# License along with avifilelib.  If not, see
 #  <http://www.gnu.org/licenses/>.
 
 """AVI Index classes.
@@ -27,8 +27,8 @@ index.
 from contextlib import closing
 from struct import unpack
 
-from libavifile.enums import AVIIF, STREAM_DATA_TYPES
-from libavifile.riff import RIFFChunk, ChunkTypeException
+from avifilelib.enums import AVIIF, STREAM_DATA_TYPES
+from avifilelib.riff import RIFFChunk, ChunkTypeException
 
 
 class AviV1IndexEntry(object):
@@ -40,7 +40,7 @@ class AviV1IndexEntry(object):
             String version of the chunk identifier.  This consists of
             two characters for the data type, and two characters for
             the stream id number.
-        flags : :py:class:`libavifile.enum.AVIIF`
+        flags : :py:class:`avifilelib.enum.AVIIF`
             Flags associated with a given chunk in the index.
         offset : int
             Offset in bytes from the start of the 'movi' list to the
@@ -124,7 +124,7 @@ class AviV1Index(object):
 
         Parameters
         ----------
-            data_type : :py:class:`libavifile.enums.AVIIF`
+            data_type : :py:class:`avifilelib.enums.AVIIF`
                 The type of the data chunks that should be contained
                 in the returned index.
 

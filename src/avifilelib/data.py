@@ -1,17 +1,17 @@
-# This file is part of libavifile.
+# This file is part of avifilelib.
 #
-# libavifile is free software: you can redistribute it and/or modify
+# avifilelib is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation, either version 3 of
 # the License, or (at your option) any later version.
 #
-# libavifile is distributed in the hope that it will be useful,
+# avifilelib is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU LesserGeneral Public
-# License along with libavifile.  If not, see
+# License along with avifilelib.  If not, see
 #  <http://www.gnu.org/licenses/>.
 
 """AVI Stream Data classes.
@@ -24,19 +24,19 @@ class).  'rec ' lists are used to group stream data chunks to indicate that they
 should all be read from disk at the same time.  This library does not preload data,
 and therefore, does not take any special action based on the presence of 'rec '
 lists within the 'movi' list.  Further, upon the location and parsing of a 'rec '
-list within an AVI file, `libavifile` simply adds the data chunks contained in the
+list within an AVI file, `avifilelib` simply adds the data chunks contained in the
 'rec ' list directly into the 'movi' list.
 
 Finally, this module provides the :py:class:`AviStreamChunk` class to represent a
 chunk of stream data within the AVI file.  Note that the `flags` applicable to a
-stream chunk are identified in the :py:class:`libavifile.index.AviV1Index`, and
+stream chunk are identified in the :py:class:`avifilelib.index.AviV1Index`, and
 therefore will not normally be available when AviStreamChunks are created.
 
 """
 from contextlib import closing
 
-from libavifile.enums import STREAM_DATA_TYPES, AVIIF
-from libavifile.riff import RIFFChunk, ChunkFormatException, ChunkTypeException, rollback
+from avifilelib.enums import STREAM_DATA_TYPES, AVIIF
+from avifilelib.riff import RIFFChunk, ChunkFormatException, ChunkTypeException, rollback
 
 
 class AviStreamChunk(object):
@@ -185,7 +185,7 @@ class AviRecList(object):
     """Used to read 'rec ' lists within an AVI file.
 
     Note that this class is used only to facilitate the loading of stream
-    data chunks contained with 'rec ' lists.  `libavifile` does not maintain
+    data chunks contained with 'rec ' lists.  `avifilelib` does not maintain
     the 'rec ' list structure after the stream data chunks have been
     identified.  All stream data chunks contained within 'rec ' lists are
     reparented to belong to the 'movi' (represented by an :py:class:`AviMoviList`)
@@ -266,7 +266,7 @@ class AviMoviList(object):
 
         Parameters
         ----------
-            index : :py:class:`libavifile.index.AviV1Index`
+            index : :py:class:`avifilelib.index.AviV1Index`
                 An index containing AVI indexing information.
 
         """

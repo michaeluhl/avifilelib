@@ -1,17 +1,17 @@
-# This file is part of libavifile.
+# This file is part of avifilelib.
 #
-# libavifile is free software: you can redistribute it and/or modify
+# avifilelib is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as
 # published by the Free Software Foundation, either version 3 of
 # the License, or (at your option) any later version.
 #
-# libavifile is distributed in the hope that it will be useful,
+# avifilelib is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU LesserGeneral Public
-# License along with libavifile.  If not, see
+# License along with avifilelib.  If not, see
 #  <http://www.gnu.org/licenses/>.
 
 """AVI File object
@@ -22,12 +22,12 @@ This module contains the AviFile class.
 from contextlib import closing
 from struct import unpack
 
-from libavifile.data import AviMoviList
-from libavifile.decoder import DecoderBase
-from libavifile.definition import AviStreamDefinition
-from libavifile.enums import AVIF
-from libavifile.index import AviV1Index
-from libavifile.riff import RIFFChunk, ChunkTypeException
+from avifilelib.data import AviMoviList
+from avifilelib.decoder import DecoderBase
+from avifilelib.definition import AviStreamDefinition
+from avifilelib.enums import AVIF
+from avifilelib.index import AviV1Index
+from avifilelib.riff import RIFFChunk, ChunkTypeException
 
 
 class AviFileHeader(object):
@@ -41,7 +41,7 @@ class AviFileHeader(object):
             Data rate
         padding_granularity : int
             Pad data to multiples of this value
-        flags : :py:class:`libavifile.enums.AVIF`
+        flags : :py:class:`avifilelib.enums.AVIF`
             Flags
         total_frames : int
             Total number of frames
