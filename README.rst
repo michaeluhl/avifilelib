@@ -19,3 +19,4 @@ frames in an AVI file:
             plt.gcf().savefig('frame_{:02d}.png'.format(ct))
     >>> a.close()
 
+See the `API documentation <http://avifilelib.readthedocs.io/en/latest/index.html>`__ for more information.
